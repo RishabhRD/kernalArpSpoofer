@@ -6,7 +6,7 @@
 
 static struct nf_hook_ops *preRouting = 0;
 static char* myIp  = 0;
-MODULE_PARM(myIp,"s");
+module_param(myIp, charp ,0000);
 static int pton(const char* src,unsigned char* dst){
 	int saw_digit,octets,ch;
 	unsigned char* tp;
