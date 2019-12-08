@@ -4,7 +4,9 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/ip.h>
 
-static struct nf_hook_ops *preRouting = NULL;
+static struct nf_hook_ops *preRouting = 0;
+static char* myIp  = 0;
+MODULE_PARM(myIp,"s");
 static int pton(const char* src,unsigned char* dst){
 	int saw_digit,octets,ch;
 	unsigned char* tp;
@@ -15,10 +17,10 @@ static int pton(const char* src,unsigned char* dst){
 	while(*src != 0){
 		ch = *src++;
 		if(ch>='0' && ch<='9'){
-			unsigned int new = *tp*10 + (ch-'0');
+			unsigned int nowNum = *tp*10 + (ch-'0');
 			if(saw_digit && *tp == 0) return 0;
-			if(new>255) return 0;
-			*tp = new;
+			if(nowNum>255) return 0;
+			*tp = nowNum;
 			if(!saw_digit){
 				if(++octets > 4 ) return 0;
 				saw_digit = 1;
@@ -40,7 +42,7 @@ static unsigned int hookFunction(void* priv,struct sk_buff* skf,const struct nf_
 	struct sockaddr_in saBroadcast;
 	if(!skf) return NF_ACCEPT;
 	iph = ip_hdr(skf);
-	pton("10.0.0.103",(unsigned char*)&(saMy.sin_addr.s_addr));
+	pton(myIp,(unsigned char*)&(saMy.sin_addr.s_addr));
 	pton("255.255.255.255",(unsigned char*)&(saBroadcast.sin_addr.s_addr));
 	if(iph->daddr != saMy.sin_addr.s_addr && iph->daddr != saBroadcast.sin_addr.s_addr){
 		return NF_DROP;
