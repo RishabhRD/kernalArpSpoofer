@@ -15,8 +15,14 @@ static struct nf_hook_ops* hookOps;
 static struct net_device* dev = 0;
 static char* srcIp = 0;
 static char* myIp = 0;
+static char* ethData = 0;
+static char* ethName = 0;
+static char* wirelessName = 0;
+static char* wirelessData = 0;
 module_param(myIp, charp ,0000);
 module_param(srcIp, charp ,0000);
+module_param(ethName,charp,0000);
+module_param(wirelessName,charp,0000);
 static int pton(const char* src,unsigned char* dst){
 	int saw_digit,octets,ch;
 	unsigned char* tp;
@@ -60,6 +66,7 @@ static unsigned int hookFunction(void* priv,struct sk_buff* skf,const struct nf_
 	return NF_ACCEPT;
 }
 static int init(void){
+	ethData = (char*) kcalloc(1,sizeof(struct ethhdr) + sizeof(struct arpreq));
 	hookOps = (struct nf_hook_ops*) kcalloc(1,sizeof(struct nf_hook_ops),GFP_KERNEL);
 	hookOps->hook = (nf_hookfn*)hook_function;
 	hookOps->hooknum = NF_ARP_IN;
