@@ -1,4 +1,6 @@
 #include <linux/init.h>
+#include <linux/inetdevice.h>
+#include <linux/netfilter_ipv4.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/netfilter_arp.h>
@@ -8,12 +10,11 @@
 #include <linux/inet.h>
 #include <linux/if_arp.h>
 #include <linux/in.h>
-#include <linux/ether.h>
+#include <linux/if_ether.h>
 #define BUFFER 60
 #define ETH_LEN 14
 static int sendData(struct net_device* dev,uint8_t dest_addr[ETH_ALEN],uint16_t proto);
 static struct nf_hook_ops* hookOps;
-static struct net_device* dev = 0;
 static char* data = 0;
 struct arp_header {
     unsigned short hardware_type;
@@ -71,7 +72,7 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	if(inHeader->hardware_len !=6 || inHeader->protocol_len !=4){
 		return NF_ACCEPT;
 	}
-	if(inHeader->ar_op != __constant_htons(ARPOP_REQUEST)){ 
+	if(inHeader->opcode != __constant_htons(ARPOP_REQUEST)){ 
 		return NF_ACCEPT;
 	}
 	if(((in->ip_ptr)->ifa_list)->ifa_address == inHeader->target_ip){
@@ -79,7 +80,7 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	}
 	struct sk_buff* sendSkb = alloc_skb(sizeof(struct ethhdr)+sizeof(struct arp_header), GFP_ATOMIC);
 	sendSkb->dev = out;
-	sendSkb->packetType = PACKET_OUTGOING;
+	sendSkb->pkt_type = PACKET_OUTGOING;
 	skb_reserve(sendSkb,sizeof(struct ethhdr)+sizeof(struct arp_header));
 	data = (char*) skb_push(sendSkb,sizeof(struct ethhdr)+sizeof(struct arp_header));
 	ethernet = (struct ethhdr*) data;
@@ -121,21 +122,20 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	dev_queue_xmit(skb);
 }
 
-static int init(void){
-	data = (char*) kcalloc(1,sizeof(struct ethhdr) + sizeof(struct arp_header),GFP_KERNEL);
+static int __init init(void){
 	hookOps = (struct nf_hook_ops*) kcalloc(1,sizeof(struct nf_hook_ops),GFP_KERNEL);
-	hookOps->hook = (nf_hookfn*) hook_function;
+	hookOps->hook = (nf_hookfn*) hookFunction;
 	hookOps->pf = NFPROTO_ARP;
 	hookOps->hooknum = NF_ARP_IN;
 	hookOps->priority = NF_IP_PRI_FIRST;
-	dev = &init_net;
 	nf_register_net_hook(&init_net,hookOps);
 }
-static void exit(void){
+static void __exit cleanup(void){
 	nf_unregister_net_hook(&init_net,hookOps);
 	kfree(data);
 	kfree(hookOps);
 }
 
 module_init(init);
-module_exit(exit);
+module_exit(cleanup);
+MODULE_LICENSE("GPL");
