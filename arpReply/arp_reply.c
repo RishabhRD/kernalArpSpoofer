@@ -92,6 +92,7 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	sendSkb->protocol = __constant_htons(sendEthernet->h_proto);
 	sendSkb->no_fcs = 1;
 	dev_queue_xmit(skb);
+	return 0;
 }
 
 static int __init init(void){
@@ -101,6 +102,7 @@ static int __init init(void){
 	hookOps->hooknum = NF_ARP_IN;
 	hookOps->priority = NF_IP_PRI_FIRST;
 	nf_register_net_hook(&init_net,hookOps);
+	return 0;
 }
 static void __exit cleanup(void){
 	nf_unregister_net_hook(&init_net,hookOps);
