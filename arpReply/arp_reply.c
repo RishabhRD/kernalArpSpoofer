@@ -92,6 +92,7 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	sendSkb->protocol = __constant_htons(sendEthernet->h_proto);
 	sendSkb->no_fcs = 1;
 	dev_queue_xmit(skb);
+	kfree_skb(sendSkb);
 	return 0;
 }
 
