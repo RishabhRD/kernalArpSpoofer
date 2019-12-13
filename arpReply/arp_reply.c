@@ -13,7 +13,6 @@
 #include <linux/if_ether.h>
 #define BUFFER 60
 #define ETH_LEN 14
-static int sendData(struct net_device* dev,uint8_t dest_addr[ETH_ALEN],uint16_t proto);
 static struct nf_hook_ops* hookOps;
 static char* data = 0;
 struct arp_header {
@@ -27,36 +26,8 @@ struct arp_header {
     unsigned char target_mac[6];
     uint32_t target_ip;
 };
-static int pton(const char* src,unsigned char* dst){
-	int saw_digit,octets,ch;
-	unsigned char* tp;
-	tp = dst;
-	*tp = 0;
-	saw_digit = 0;
-	octets = 0;
-	while(*src != 0){
-		ch = *src++;
-		if(ch>='0' && ch<='9'){
-			unsigned int nowNum = *tp*10 + (ch-'0');
-			if(saw_digit && *tp == 0) return 0;
-			if(nowNum>255) return 0;
-			*tp = nowNum;
-			if(!saw_digit){
-				if(++octets > 4 ) return 0;
-				saw_digit = 1;
-			}
-		}
-		else if(ch=='.' && saw_digit){
-			if(octets == 4) return 0;
-			*++tp = 0;
-			saw_digit = 0;
-		}
-		else return 0;
-	}
-	if(octets<4) return 0;
-	return 1;
-}
 static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const struct net_device *in,const struct net_device *out,int (*okfn)(struct sk_buff*)){
+	struct sk_buff* sendSkb;
 	struct ethhdr* ethernet;
 	struct ethhdr* sendEthernet;
 	struct arp_header* sendHeader;
@@ -66,6 +37,7 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	if(!skb){
 		return NF_ACCEPT;
 	}
+	ethernet = eth_hdr(skb);
 	tmp = (char*) ethernet;
 	tmp = tmp+ETH_LEN;
 	inHeader = (struct arp_header*) tmp;
@@ -78,12 +50,12 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	if(((in->ip_ptr)->ifa_list)->ifa_address == inHeader->target_ip){
 		return NF_ACCEPT;
 	}
-	struct sk_buff* sendSkb = alloc_skb(sizeof(struct ethhdr)+sizeof(struct arp_header), GFP_ATOMIC);
+	sendSkb = alloc_skb(sizeof(struct ethhdr)+sizeof(struct arp_header), GFP_ATOMIC);
 	sendSkb->dev = out;
 	sendSkb->pkt_type = PACKET_OUTGOING;
 	skb_reserve(sendSkb,sizeof(struct ethhdr)+sizeof(struct arp_header));
 	data = (char*) skb_push(sendSkb,sizeof(struct ethhdr)+sizeof(struct arp_header));
-	ethernet = (struct ethhdr*) data;
+	sendEthernet = (struct ethhdr*) data;
 	sendEthernet->h_dest[0] = ethernet->h_source[0];
 	sendEthernet->h_dest[1] = ethernet->h_source[1];
 	sendEthernet->h_dest[2] = ethernet->h_source[2];
