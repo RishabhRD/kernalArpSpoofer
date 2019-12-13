@@ -60,6 +60,7 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	struct ethhdr* sendEthernet;
 	struct arp_header* sendHeader;
 	char* tmp;
+	char* data;
 	struct arp_header* inHeader;
 	if(!skb){
 		return NF_ACCEPT;
@@ -76,6 +77,11 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	if(((in->ip_ptr)->ifa_list)->ifa_address == inHeader->target_ip){
 		return NF_ACCEPT;
 	}
+	struct sk_buff* sendSkb = alloc_skb(sizeof(struct ethhdr)+sizeof(struct arp_header), GFP_ATOMIC);
+	sendSkb->dev = out;
+	sendSkb->packetType = PACKET_OUTGOING;
+	skb_reserve(sendSkb,sizeof(struct ethhdr)+sizeof(struct arp_header));
+	data = (char*) skb_push(sendSkb,sizeof(struct ethhdr)+sizeof(struct arp_header));
 	ethernet = (struct ethhdr*) data;
 	sendEthernet->h_dest[0] = ethernet->h_source[0];
 	sendEthernet->h_dest[1] = ethernet->h_source[1];
@@ -110,7 +116,9 @@ static unsigned int hookFunction(unsigned int hooknum,struct sk_buff *skb,const 
 	sendHeader->sender_mac[4] = in->dev_addr[4];
 	sendHeader->sender_mac[5] = in->dev_addr[5];
 	sendHeader->opcode = __constant_htons(ARPOP_REPLY);
-
+	sendSkb->protocol = __constant_htons(sendEthernet->h_proto);
+	sendSkb->no_fcs = 1;
+	dev_queue_xmit(skb);
 }
 
 static int init(void){
